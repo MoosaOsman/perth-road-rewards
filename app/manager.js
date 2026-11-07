@@ -5,6 +5,7 @@ import {
 } from './core.js';
 import { frame, setTabs, paintStatus, refreshBoot } from './app.js';
 import { pendingTab, payoutTab, customerDesk, startPolling } from './kiosk.js';
+import { journalTab } from './journal-check.js';
 
 export function start() {
   frame.statusExtras = [];
@@ -16,8 +17,10 @@ export function start() {
     { id: 'customers', label: 'Customers', render: customersTab },
     { id: 'rates', label: 'Rates', render: ratesTab },
     { id: 'settings', label: 'Settings', render: settingsTab },
+    { id: 'pumps', label: 'Pumps', render: pumpsTab },
     { id: 'staff', label: 'Staff', render: staffTab },
     { id: 'devices', label: 'Devices', render: devicesTab },
+    { id: 'journal', label: 'Journal check', render: journalTab },
     { id: 'reports', label: 'Reports', render: reportsTab },
     { id: 'audit', label: 'Audit log', render: auditTab },
   ]);
@@ -156,6 +159,52 @@ async function settingsTab() {
     await refreshBoot();
     out.append(msg('Settings saved. Other tablets pick them up at their next sign-in.', 'ok'));
   });
+}
+
+// ------------------------------------------------------------------ pumps
+// Which grade(s) each pump dispenses. The forecourt then asks only for the pump.
+async function pumpsTab() {
+  await refreshBoot();
+  const { settings: s, grades } = S.boot;
+  const saved = new Map((S.boot.pumps || []).map((p) => [p.pump, p]));
+  const rows = Array.from({ length: s.pump_count }, (_, i) => {
+    const n = i + 1, p = saved.get(n);
+    return { pump: n, grades: new Set(p ? p.grades : []), active: p ? p.active : true };
+  });
+  const out = h('div');
+  const save = h('button', { class: 'primary block' }, 'Save pumps');
+
+  const rowEl = (r) => {
+    const el = h('div', { class: 'card pump-row' });
+    const paint = () => {
+      el.classList.toggle('off', !r.active);
+      el.replaceChildren(
+        h('div', { class: 'pump-no' }, String(r.pump)),
+        h('div', { class: 'grid grades grow' }, grades.map((g) => h('button', {
+          type: 'button', class: r.grades.has(g.code) ? 'sel' : null, disabled: !r.active,
+          onclick: () => { r.grades.has(g.code) ? r.grades.delete(g.code) : r.grades.add(g.code); paint(); },
+        }, g.name, h('small', {}, g.code)))),
+        h('button', { type: 'button', class: r.active ? 'ghost small' : 'small', onclick: () => { r.active = !r.active; paint(); } },
+          r.active ? 'In use' : 'Not in use'));
+    };
+    paint();
+    return el;
+  };
+
+  save.onclick = () => busy(save, async () => {
+    out.replaceChildren();
+    const missing = rows.filter((r) => r.active && !r.grades.size).map((r) => r.pump);
+    if (missing.length) return out.append(msg(`Choose a grade for pump ${missing.join(', ')}, or mark it not in use.`));
+    const r = await api('api_mgr_pumps_save', { p_pumps: rows.map((x) => ({ pump: x.pump, grades: [...x.grades], active: x.active })) });
+    if (!r.ok) return out.append(msg(r.message));
+    await refreshBoot();
+    out.append(msg('Pumps saved. Forecourt tablets pick this up at their next sign-in.', 'ok'));
+  });
+
+  render(h('h1', {}, 'Pumps'),
+    h('p', { class: 'muted' }, 'Tap the grade each pump dispenses. A pump with one grade fills it in by itself, so the attendant only '
+      + 'chooses the pump. Choose more than one grade only for a multi-grade dispenser. The number of pumps is in Settings.'),
+    rows.map(rowEl), h('p'), out, save);
 }
 
 // ------------------------------------------------------------------ staff
@@ -472,6 +521,7 @@ const ACTIONS = {
   payout: 'Payout', rate_changed: 'Rate changed', settings_changed: 'Settings changed', staff_saved: 'Staff saved',
   device_created: 'Device created', device_disable: 'Device disabled', device_enable: 'Device enabled',
   device_repair: 'Device re-paired', customer_updated: 'Customer updated', balance_adjusted: 'Balance adjusted',
+  journal_uploaded: 'Journal uploaded', pumps_changed: 'Pumps changed', claim_reversed: 'Claim reversed (journal check)',
 };
 async function auditTab() {
   const d = await load('Audit log', 'api_mgr_audit', { p_limit: 500 });

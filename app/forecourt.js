@@ -153,11 +153,43 @@ function claimStep(uid, info) {
 
   const kp = keypad({ decimals: 2, maxLen: 5, onChange: () => update(), onEnter: () => submit.click() });
 
-  const pumps = h('div', { class: 'grid pumps' }, Array.from({ length: st.pump_count }, (_, i) => i + 1).map((n) =>
-    h('button', { 'data-v': n, onclick: (e) => { pump = n; pick(pumps, e.currentTarget); update(); } }, String(n))));
-  const gradeBtns = h('div', { class: 'grid grades' }, grades.map((g) =>
-    h('button', { 'data-v': g.code, onclick: (e) => { grade = g; pick(gradeBtns, e.currentTarget); update(); } },
-      g.name, h('small', {}, `${g.code} · ${rate(g.rate)}`))));
+  // Pump set-up (manager → Pumps): pumps not in use are hidden; a pump with one
+  // grade fills it in, a multi-grade pump offers only its own grades. Pumps
+  // without set-up offer every grade.
+  const cfg = new Map((S.boot.pumps || []).map((p) => [p.pump, p]));
+  const gradesFor = (n) => {
+    const c = cfg.get(n);
+    const own = c && c.grades.length ? grades.filter((g) => c.grades.includes(g.code)) : [];
+    return own.length ? own : grades;
+  };
+  const pumpNos = Array.from({ length: st.pump_count }, (_, i) => i + 1).filter((n) => !cfg.has(n) || cfg.get(n).active);
+
+  const gradeHead = h('h2', { hidden: true }, '2. Fuel grade');
+  const gradeBox = h('div');
+  const litresHead = h('h2', {}, '2. Litres');
+  const pumps = h('div', { class: 'grid pumps' }, pumpNos.map((n) => {
+    const own = cfg.has(n) && cfg.get(n).grades.length ? gradesFor(n) : null;
+    return h('button', { 'data-v': n, onclick: (e) => { pump = n; pick(pumps, e.currentTarget); showGrades(); update(); } },
+      String(n), own ? h('small', {}, own.map((g) => g.code).join(' / ')) : null);
+  }));
+
+  function showGrades() {
+    const list = gradesFor(pump);
+    if (list.length === 1) {
+      grade = list[0];
+      gradeHead.hidden = true;
+      gradeBox.replaceChildren(h('p', { class: 'big' }, `${grade.name} · ${rate(grade.rate)}`));
+      litresHead.textContent = '2. Litres';
+      return;
+    }
+    if (!grade || !list.includes(grade)) grade = null;
+    gradeHead.hidden = false;
+    litresHead.textContent = '3. Litres';
+    const btns = h('div', { class: 'grid grades' }, list.map((g) =>
+      h('button', { 'data-v': g.code, class: g === grade ? 'sel' : null, onclick: (e) => { grade = g; pick(btns, e.currentTarget); update(); } },
+        g.name, h('small', {}, `${g.code} · ${rate(g.rate)}`))));
+    gradeBox.replaceChildren(btns);
+  }
 
   function pick(grid, btn) { grid.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', b === btn)); }
 
@@ -204,8 +236,8 @@ function claimStep(uid, info) {
           : 'Offline — card not checked')),
       h('button', { class: 'ghost', onclick: () => cardStep() }, 'Cancel')),
     h('h2', {}, '1. Pump'), pumps,
-    h('h2', {}, '2. Fuel grade'), gradeBtns,
-    h('h2', {}, '3. Litres'), kp.display, kp.pad,
+    gradeHead, gradeBox,
+    litresHead, kp.display, kp.pad,
     h('p'), est, out, h('p'), submit);
 }
 

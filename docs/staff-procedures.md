@@ -15,12 +15,11 @@ Three one-page procedures: **Attendant**, **Cashier** and the **Manager's daily 
    * The customer's name and litres left today appear.
    * "Card not registered", "blocked" or "limit reached": tell the customer politely to see the cashier. Do not capture a claim.
    * If the card will not read, type the number printed on the card and tap **Use**.
-2. Tap the **pump number**.
-3. Tap the **fuel grade**.
-4. Type the **litres exactly as shown on the pump**, e.g. 42,57.
-5. Check the summary on the green button, then tap **Submit**.
-6. The screen shows **PENDING**. Tell the customer: *"Your cashback is pending. Please pay, and the cashier will approve it."*
-7. Tap **Next customer**.
+2. Tap the **pump number**. The grade fills in by itself (each pump button shows its grade). Only on a pump that sells more than one grade, also tap the **fuel grade**.
+3. Type the **litres exactly as shown on the pump**, e.g. 42,57.
+4. Check the summary on the green button, then tap **Submit**.
+5. The screen shows **PENDING**. Tell the customer: *"Your cashback is pending. Please pay, and the cashier will approve it."*
+6. Tap **Next customer**.
 
 **Rules**
 * One claim per fill. Never capture a claim for a fill that did not happen or for another person's card.
@@ -71,14 +70,19 @@ Three one-page procedures: **Attendant**, **Cashier** and the **Manager's daily 
 
 ## Manager — daily reconciliation checklist
 
-Do this every morning for the **previous day** (Reports → **Yesterday**). Allow 15 minutes.
+Do this every morning for the **previous day**. Allow 15 minutes.
 
-**1. Litres against Namos**
-- [ ] Reports → *By grade (approved)*: note approved litres per grade.
-- [ ] Namos pump/grade totals for the same day: approved scheme litres must be **less than** litres sold for each grade.
-- [ ] Note the share of litres on the scheme. Investigate a sudden jump.
+**1. Journal check (every claim against Namos)**
+- [ ] Export the previous day's **Transaction Journal** from Namos as a .txt file.
+- [ ] Manager tablet → **Journal check** → choose the file. Check the preview (date, receipts, litres sold), then **Upload and check claims**.
+- [ ] Every approved and pending claim is matched to its sale. To pass, the receipt number, pump, grade and litres must be **identical** (not one hundredth of a litre different), and the sale within **30 minutes** of the claim. Split lines on one receipt (same pump) are added together.
+- [ ] **RECEIPT NO. WRONG**: the sale was found but the cashier typed the wrong receipt number. Cashback stands; remind the cashier.
+- [ ] **MISMATCH**, **NO SALE**, **DUPLICATE**: the claim does not match a sale. The *Why* column says what differs and lists the nearest sales on that pump. Check CCTV or ask the attendant and cashier. If the fill did not happen as claimed, tap **Reverse** and write the reason. Reversals are recorded in the audit log and never happen automatically.
+- [ ] Failed **pending** claims: tell the cashier to reject them at the kiosk.
+- [ ] Claims just before midnight may match the next day's sales: they are re-checked automatically when the next day's journal is uploaded. Approvals made after the upload: tap **Check again**.
+- [ ] *Litres by grade* compares Namos litres sold with approved scheme litres. Investigate a sudden jump in the share on the scheme.
 
-**2. Spot-check approvals** (at least 3 per day, more if anything looks odd)
+**2. Spot-check approvals** (weekly, or when something looks odd)
 - [ ] Export claims CSV, pick approved claims at random, look up each **Namos receipt number** in Namos.
 - [ ] Pump, grade, litres and time must match the Namos transaction.
 
