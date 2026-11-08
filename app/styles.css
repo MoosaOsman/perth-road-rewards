@@ -208,9 +208,4 @@ tr.clickable:hover td { background: #f9fafb; }
   body { font-size: 12pt; }
 }
 
-/* pump set-up (manager) */
-.pump-row { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
-.pump-row .pump-no { font-size: 2rem; font-weight: 900; min-width: 52px; text-align: center; }
-.pump-row.off { opacity: .55; }
 .grid.pumps button small { font-size: .85rem; }
-.pump-row .grow { flex: 1; }

@@ -1,6 +1,6 @@
 // Caches the app shell so the tablets start without a network.
 // API calls (Supabase) are never cached. Bump VERSION on every release.
-const VERSION = 'prr-v3';
+const VERSION = 'prr-v4';
 const SHELL = [
   './', 'index.html', 'styles.css', 'config.js', 'app.js', 'core.js',
   'forecourt.js', 'kiosk.js', 'manager.js', 'journal.js', 'journal-check.js', 'manifest.webmanifest',

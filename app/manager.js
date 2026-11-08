@@ -130,7 +130,6 @@ async function settingsTab() {
     default_cap_litres: h('input', { inputmode: 'decimal', value: s.default_cap_litres }),
     max_litres_per_fill: h('input', { inputmode: 'decimal', value: s.max_litres_per_fill }),
     claim_expiry_hours: h('input', { inputmode: 'numeric', value: s.claim_expiry_hours }),
-    pump_count: h('input', { inputmode: 'numeric', value: s.pump_count }),
   };
   const out = h('div');
   const save = h('button', { class: 'primary block', type: 'submit' }, 'Save settings');
@@ -142,7 +141,6 @@ async function settingsTab() {
     field('Default daily litre cap per card', f.default_cap_litres, 'Can be raised per customer (taxis, fleets).'),
     field('Maximum litres in one fill', f.max_litres_per_fill),
     field('Unapproved claims expire after (hours, 1–72)', f.claim_expiry_hours),
-    field('Number of pumps (1–40)', f.pump_count),
     h('p'), out, save));
   const submit = () => busy(save, async () => {
     out.replaceChildren();
@@ -153,7 +151,6 @@ async function settingsTab() {
       default_cap_litres: Number(f.default_cap_litres.value.replace(',', '.')),
       max_litres_per_fill: Number(f.max_litres_per_fill.value.replace(',', '.')),
       claim_expiry_hours: parseInt(f.claim_expiry_hours.value, 10),
-      pump_count: parseInt(f.pump_count.value, 10),
     } });
     if (!r.ok) return out.append(msg(r.message));
     await refreshBoot();
@@ -162,49 +159,22 @@ async function settingsTab() {
 }
 
 // ------------------------------------------------------------------ pumps
-// Which grade(s) each pump dispenses. The forecourt then asks only for the pump.
+// The pumps and their grades are fixed facts of the site, installed by
+// migration 009 from the Namos journal. View only; a change needs a migration.
 async function pumpsTab() {
   await refreshBoot();
   const { settings: s, grades } = S.boot;
-  const saved = new Map((S.boot.pumps || []).map((p) => [p.pump, p]));
-  const rows = Array.from({ length: s.pump_count }, (_, i) => {
-    const n = i + 1, p = saved.get(n);
-    return { pump: n, grades: new Set(p ? p.grades : []), active: p ? p.active : true };
-  });
-  const out = h('div');
-  const save = h('button', { class: 'primary block' }, 'Save pumps');
-
-  const rowEl = (r) => {
-    const el = h('div', { class: 'card pump-row' });
-    const paint = () => {
-      el.classList.toggle('off', !r.active);
-      el.replaceChildren(
-        h('div', { class: 'pump-no' }, String(r.pump)),
-        h('div', { class: 'grid grades grow' }, grades.map((g) => h('button', {
-          type: 'button', class: r.grades.has(g.code) ? 'sel' : null, disabled: !r.active,
-          onclick: () => { r.grades.has(g.code) ? r.grades.delete(g.code) : r.grades.add(g.code); paint(); },
-        }, g.name, h('small', {}, g.code)))),
-        h('button', { type: 'button', class: r.active ? 'ghost small' : 'small', onclick: () => { r.active = !r.active; paint(); } },
-          r.active ? 'In use' : 'Not in use'));
-    };
-    paint();
-    return el;
-  };
-
-  save.onclick = () => busy(save, async () => {
-    out.replaceChildren();
-    const missing = rows.filter((r) => r.active && !r.grades.size).map((r) => r.pump);
-    if (missing.length) return out.append(msg(`Choose a grade for pump ${missing.join(', ')}, or mark it not in use.`));
-    const r = await api('api_mgr_pumps_save', { p_pumps: rows.map((x) => ({ pump: x.pump, grades: [...x.grades], active: x.active })) });
-    if (!r.ok) return out.append(msg(r.message));
-    await refreshBoot();
-    out.append(msg('Pumps saved. Forecourt tablets pick this up at their next sign-in.', 'ok'));
-  });
-
+  const byPump = new Map((S.boot.pumps || []).map((p) => [p.pump, p]));
+  const name = (code) => (grades.find((g) => g.code === code) || { name: code }).name;
+  const rows = Array.from({ length: s.pump_count }, (_, i) => byPump.get(i + 1) || { pump: i + 1, grades: [], active: true });
   render(h('h1', {}, 'Pumps'),
-    h('p', { class: 'muted' }, 'Tap the grade each pump dispenses. A pump with one grade fills it in by itself, so the attendant only '
-      + 'chooses the pump. Choose more than one grade only for a multi-grade dispenser. The number of pumps is in Settings.'),
-    rows.map(rowEl), h('p'), out, save);
+    h('p', { class: 'muted' }, 'The pumps and the grade each one dispenses are fixed for this site. The attendant only chooses the '
+      + 'pump; the grade fills in by itself. To change a pump (a new dispenser or a grade swap), ask for the system to be updated.'),
+    table([
+      { label: 'Pump', get: (p) => h('b', {}, String(p.pump)) },
+      { label: 'Grade', get: (p) => (p.active ? p.grades.map(name).join(' / ') || 'Any grade' : '—') },
+      { label: 'Status', get: (p) => (p.active ? h('span', { class: 'badge ok' }, 'IN USE') : h('span', { class: 'badge grey' }, 'NOT IN USE')) },
+    ], rows));
 }
 
 // ------------------------------------------------------------------ staff
@@ -521,7 +491,7 @@ const ACTIONS = {
   payout: 'Payout', rate_changed: 'Rate changed', settings_changed: 'Settings changed', staff_saved: 'Staff saved',
   device_created: 'Device created', device_disable: 'Device disabled', device_enable: 'Device enabled',
   device_repair: 'Device re-paired', customer_updated: 'Customer updated', balance_adjusted: 'Balance adjusted',
-  journal_uploaded: 'Journal uploaded', pumps_changed: 'Pumps changed', claim_reversed: 'Claim reversed (journal check)',
+  journal_uploaded: 'Journal uploaded', claim_reversed: 'Claim reversed (journal check)',
 };
 async function auditTab() {
   const d = await load('Audit log', 'api_mgr_audit', { p_limit: 500 });

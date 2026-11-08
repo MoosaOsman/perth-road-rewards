@@ -64,8 +64,8 @@ Manager device → **Staff → Add staff member**.
 
 ## 4. Review settings and rates
 
-* **Settings:** scheme name, R50 minimum payout, R1 000 daily payout limit, 150 L default cap, 200 L per fill, 14-hour claim expiry, **number of pumps** (set to the real count).
-* **Pumps:** tap the grade each pump dispenses (ULP 93, ULP 95 or D50) and mark any pump that is out of use as **Not in use**, then **Save pumps**. The forecourt then asks only for the pump; the grade fills in by itself. The server also refuses a claim whose grade the pump does not sell. Forecourt tablets pick up changes at their next sign-in.
+* **Settings:** scheme name, R50 minimum payout, R1 000 daily payout limit, 150 L default cap, 200 L per fill, 14-hour claim expiry.
+* **Pumps (fixed, view only):** the 10 pumps and their grades are installed with the system (migration 009, from the Namos journal of 1 Nov 2026): ULP 95 on pumps 1, 4, 8, 9; ULP 93 on pump 6; D50 on pumps 2, 3, 5, 10; pump 7 not in use. The forecourt asks only for the pump; the grade fills in by itself, and the server refuses a claim whose grade the pump does not sell. A physical change to the forecourt needs a new migration.
 * **Rates:** 10 c/L on all grades to start. Changes apply to claims captured from that moment.
 
 ---
@@ -145,7 +145,7 @@ If the kiosk tablet has no NFC, or a desk reader is preferred:
 
 - [ ] App published and opens over HTTPS on every device.
 - [ ] Manager account created; second manager added as back-up.
-- [ ] Settings checked (pump count!), pumps set up (grade per pump) and rates set.
+- [ ] Settings checked, Pumps tab matches the forecourt, rates set.
 - [ ] All staff added with personal PINs.
 - [ ] Forecourt and kiosk tablets paired, installed, NFC on, stay-awake on, pinned.
 - [ ] One real card registered, a claim captured on the forecourt, approved on the kiosk with a real Namos receipt number, and visible in Reports.
