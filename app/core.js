@@ -312,11 +312,16 @@ function paintReader(el) {
   if (btn) btn.hidden = nfcOn || !nfcSupported();
 }
 
+// Contactless symbol: a point and three arcs, drawn in currentColor.
+const TAP_ICON = '<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3">'
+  + '<rect x="14" y="29" width="6" height="6" fill="currentColor" stroke="none"/>'
+  + '<path d="M28 20a17 17 0 0 1 0 24M36 13a27 27 0 0 1 0 38M44 6a37 37 0 0 1 0 52"/></svg>';
+
 export function cardReader({ title = 'Tap the customer’s card', onCard }) {
   const input = h('input', { type: 'text', inputmode: 'text', autocomplete: 'off', autocapitalize: 'characters',
     placeholder: 'Or type card number', 'aria-label': 'Card number' });
   const el = h('div', { class: 'reader' },
-    h('div', { class: 'icon', 'aria-hidden': 'true' }, '💳'),
+    h('div', { class: 'icon', 'aria-hidden': 'true', html: TAP_ICON }),
     h('div', { class: 'big' }, title),
     h('p', { class: 'nfc-state muted' }),
     h('button', { type: 'button', class: 'primary nfc-start', onclick: () => startNfc() }, 'Start card reader'),

@@ -3,17 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#101828">
+  <meta name="theme-color" content="#000000">
   <meta name="robots" content="noindex">
   <title>Perth Road Rewards</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icons/icon-192.png">
+  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/VSConstruct-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <header id="top">
-    <div class="brand"><span id="scheme">Perth Road Rewards</span><small id="device"></small></div>
+    <div class="brand">
+      <svg class="mark" viewBox="16 31 224 194" aria-hidden="true">
+        <defs><mask id="seams" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256"><rect width="256" height="256" fill="#fff"/><g stroke="#000" stroke-width="7"><line x1="72" y1="31" x2="128" y2="225"/><line x1="128" y1="128" x2="128" y2="225"/><line x1="184" y1="31" x2="128" y2="225"/></g></mask></defs>
+        <polygon points="16,31 128,225 240,31 184,31 128,128 72,31" fill="#fff" mask="url(#seams)"/>
+      </svg>
+      <div class="names"><span id="scheme">Perth Road Rewards</span><small id="device"></small></div>
+    </div>
     <div class="status" id="status"></div>
   </header>
   <nav id="tabs" hidden></nav>

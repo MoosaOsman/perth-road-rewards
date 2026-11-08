@@ -40,7 +40,7 @@ export function paintStatus() {
     ...frame.statusExtras.map((f) => f()),
     h('span', { class: `pill ${navigator.onLine ? 'ok' : 'bad'}` }, navigator.onLine ? 'Online' : 'Offline'),
     S.me ? h('span', { class: 'who' }, S.me.name) : null,
-    S.me ? h('button', { class: 'pill warn', onclick: () => lock() }, '🔒 Lock') : null,
+    S.me ? h('button', { class: 'pill warn', onclick: () => lock() }, 'Lock') : null,
   ].filter(Boolean));
 }
 
