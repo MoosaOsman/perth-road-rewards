@@ -60,19 +60,22 @@ body::before {
 header#top {
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 10px 16px; min-height: 64px;
+  padding: max(10px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px));
+  min-height: 64px;
   background: rgb(28 28 30 / .55);
   -webkit-backdrop-filter: blur(22px) saturate(140%); backdrop-filter: blur(22px) saturate(140%);
   border-bottom: 1px solid var(--hair);
   box-shadow: inset 0 -1px 0 rgb(255 255 255 / .04);
 }
-.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
 .brand .mark { width: 30px; height: 26px; flex: 0 0 auto; }
 .brand .names { display: flex; flex-direction: column; min-width: 0; }
-.brand #scheme { font-family: var(--display); font-weight: 400; font-size: 1.05rem; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.brand #scheme, .brand small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand #scheme { font-family: var(--display); font-weight: 400; font-size: 1.05rem; letter-spacing: .12em; text-transform: uppercase; }
 .brand small { font-family: var(--display); color: var(--text-3); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; }
-.status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.status .who { font-family: var(--display); letter-spacing: .08em; }
+.status { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; min-width: 0; justify-content: flex-end; }
+.status > * { flex: 0 0 auto; }
+.status .who { font-family: var(--display); letter-spacing: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16ch; flex-shrink: 1; min-width: 0; }
 .pill {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px;
   font-family: var(--display); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
@@ -84,7 +87,7 @@ header#top {
 button.pill { min-height: 44px; padding: 6px 18px; cursor: pointer; }
 
 nav#tabs {
-  position: sticky; top: 64px; z-index: 9;
+  position: sticky; top: var(--head-h, 64px); z-index: 9;   /* --head-h: measured header height (app.js) */
   display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px;
   background: rgb(10 10 11 / .7);
   -webkit-backdrop-filter: blur(22px); backdrop-filter: blur(22px);
@@ -99,6 +102,22 @@ nav#tabs button {
 nav#tabs button:hover { color: var(--text); border-color: var(--hair); }
 nav#tabs button.on { background: var(--white); color: var(--black); border-color: var(--white); }
 nav#tabs .count { margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--signal); color: var(--black); letter-spacing: 0; }
+
+/* Phones: two tidy rows. Row 1 is the mark and scheme name; row 2 is one strip
+   with the status pills on the left and the person and Lock on the right. */
+@media (max-width: 640px) {
+  header#top { flex-wrap: wrap; row-gap: 8px; min-height: 0; padding-bottom: 8px; }
+  .brand { flex-basis: 100%; gap: 10px; }
+  .brand .mark { width: 24px; height: 21px; }
+  .brand #scheme { font-size: .9rem; letter-spacing: .1em; }
+  .status { flex: 1 1 100%; justify-content: flex-start; gap: 6px; }
+  .status .who { margin-left: auto; font-size: .78rem; max-width: 14ch; min-width: 5ch; }
+  .pill { padding: 3px 9px; font-size: .64rem; letter-spacing: .1em; }
+  .pill.ok { font-size: 0; gap: 0; padding: 7px; }          /* online: the diamond alone; offline keeps its word */
+  button.pill { min-height: 36px; padding: 4px 14px; }
+  nav#tabs { padding: 6px 10px; }
+  nav#tabs button { min-height: 42px; padding: 0 14px; font-size: .72rem; letter-spacing: .1em; }
+}
 
 main { padding: 20px 16px; max-width: 1120px; margin: 0 auto; padding-bottom: 96px; }
 

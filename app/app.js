@@ -24,6 +24,13 @@ setHooks({
   onAuthLost: (m) => { lock(m); },
 });
 
+// The tab bar sticks directly under the header, whose height changes with the
+// screen width and the status pills shown (two rows on phones).
+if ('ResizeObserver' in window) {
+  new ResizeObserver(([e]) => document.documentElement.style.setProperty('--head-h', `${Math.ceil(e.target.getBoundingClientRect().height)}px`))
+    .observe($('#top'));
+}
+
 window.addEventListener('online', () => paintStatus());
 window.addEventListener('offline', () => paintStatus());
 document.addEventListener('pointerdown', unlockAudio, { once: true });
