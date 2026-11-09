@@ -181,7 +181,7 @@ function claimStep(uid, info) {
     if (list.length === 1) {
       grade = list[0];
       gradeHead.hidden = true;
-      gradeBox.replaceChildren(h('p', { class: 'big' }, `${grade.name} · ${rate(rateOf(grade))}`));
+      gradeBox.replaceChildren(h('p', { class: 'big grade-line' }, `${grade.name} · ${rate(rateOf(grade))}`));
       litresHead.textContent = '2. Litres';
       return;
     }
@@ -203,7 +203,7 @@ function claimStep(uid, info) {
     if (l > maxFill) problem = `More than ${litres(maxFill)} in one fill is not allowed.`;
     else if (remaining != null && l > remaining) problem = `Only ${litres(remaining)} left today for this card.`;
     if (problem) out.append(msg(problem));
-    est.textContent = grade && l > 0 ? `Estimated cashback: ${money(Math.round(l * rateOf(grade)))}` : '';
+    est.textContent = grade && l > 0 ? `Est. cashback ${money(Math.round(l * rateOf(grade)))}` : '';
     submit.disabled = !(pump && grade && l > 0) || !!problem;
     submit.textContent = pump && grade && l > 0
       ? `Submit: pump ${pump} · ${grade.code} · ${litres(l)}` : 'Submit claim';
@@ -230,19 +230,20 @@ function claimStep(uid, info) {
     }
   });
 
-  render(
-    h('div', { class: 'row' },
+  // One screen on a phone: the keypad takes whatever height is left (styles.css).
+  render(h('div', { class: 'claim-screen' },
+    h('div', { class: 'row claim-head' },
       h('div', { class: 'grow' },
         h('div', { class: 'big' }, info ? info.customer_name : `Card …${uid.slice(-4)}`),
-        info && info.company ? h('div', {}, info.company) : null,
+        info && info.company ? h('div', { class: 'company' }, info.company) : null,
         h('div', { class: 'muted' }, info
-          ? `${litres(info.litres_remaining)} left today (limit ${litres(info.cap_litres)})`
+          ? `${litres(info.litres_remaining)} of ${litres(info.cap_litres)} left today`
           : 'Offline — card not checked')),
-      h('button', { class: 'ghost', onclick: () => cardStep() }, 'Cancel')),
+      h('button', { class: 'ghost small', onclick: () => cardStep() }, 'Cancel')),
     h('h2', {}, '1. Pump'), pumps,
     gradeHead, gradeBox,
-    litresHead, kp.display, kp.pad,
-    h('p'), est, out, h('p'), submit);
+    h('div', { class: 'row litres-row' }, litresHead, h('span', { class: 'spacer' }), est), kp.display, kp.pad,
+    h('div', { class: 'claim-foot' }, out, submit)));
 }
 
 function resultStep(c, queued) {

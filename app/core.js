@@ -109,6 +109,7 @@ export function modal(build, { wide = false } = {}) {
   const ov = $('#overlay');
   const box = h('div', { class: `modal${wide ? ' wide' : ''}`, role: 'dialog', 'aria-modal': 'true' });
   const close = () => { box.remove(); if (!ov.children.length) ov.hidden = true; };
+  box.closeModal = close;
   append(box, [build(close)]);
   ov.appendChild(box);
   ov.hidden = false;
@@ -117,6 +118,12 @@ export function modal(build, { wide = false } = {}) {
   return { close, el: box };
 }
 export function closeAllModals() { const ov = $('#overlay'); ov.replaceChildren(); ov.hidden = true; }
+// Escape closes the top dialog (tablets with a keyboard or USB reader).
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const top = $('#overlay').lastElementChild;
+  if (top && top.closeModal) { e.preventDefault(); top.closeModal(); }
+});
 
 export function confirmBox(title, body, okLabel = 'Confirm', okClass = 'go') {
   return new Promise((resolve) => {
@@ -250,7 +257,7 @@ export function keypad({ decimals = 0, maxLen = 6, mask = false, value = '', onC
 // USB/Bluetooth reader (fast keystrokes + Enter) and manual entry.
 let ndef = null;
 let nfcOn = false;
-let active = null;          // {el, onCard}
+let readers = [];           // [{el, onCard}], newest last; the newest still on screen gets the card
 let lastUid = '', lastAt = 0;
 
 export const nfcSupported = () => 'NDEFReader' in window;
@@ -261,7 +268,9 @@ function deliver(raw) {
   const now = Date.now();
   if (uid === lastUid && now - lastAt < 2500) return; // card held on the reader
   lastUid = uid; lastAt = now;
-  if (active && active.el.isConnected) {
+  readers = readers.filter((r) => r.el.isConnected);
+  const active = readers[readers.length - 1];
+  if (active) {
     if (navigator.vibrate) navigator.vibrate(80);
     active.onCard(uid);
   }
@@ -293,7 +302,7 @@ export async function autoStartNfc() {
 
 let wedgeBuf = '', wedgeLast = 0;
 document.addEventListener('keydown', (e) => {
-  if (!active || !active.el.isConnected) return;
+  if (!readers.some((r) => r.el.isConnected)) return;
   const t = e.target;
   if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
   const now = performance.now();
@@ -332,7 +341,8 @@ export function cardReader({ title = 'Tap the customer’s card', onCard }) {
     h('button', { type: 'button', class: 'primary nfc-start', onclick: () => startNfc() }, 'Start card reader'),
     h('form', { onsubmit: (e) => { e.preventDefault(); const v = input.value; input.value = ''; deliver(v); } },
       input, h('button', { type: 'submit', class: 'ghost' }, 'Use')));
-  active = { el, onCard };
+  readers = readers.filter((r) => r.el.isConnected);
+  readers.push({ el, onCard });
   paintReader(el);
   autoStartNfc();
   return el;

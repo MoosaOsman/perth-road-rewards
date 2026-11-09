@@ -325,3 +325,49 @@ tr.clickable:hover td { background: rgb(255 255 255 / .04); }
   td, th { border-color: #999; }
   .muted, .help, .kpi .l { color: #333; }
 }
+
+/* ------------------------------------------------------------- forecourt claim screen
+   On a phone the whole claim fits one screen without scrolling: compact customer
+   line, pumps in a 5 x 2 grid, and a keypad that takes the height that is left. */
+.claim-screen { display: flex; flex-direction: column; gap: 10px; }
+.claim-screen h2 { margin: 6px 0 0; }
+.claim-foot { display: flex; flex-direction: column; gap: 8px; }
+.litres-row { gap: 8px; align-items: baseline; }
+.litres-row .big { font-size: 1.15rem; }
+@media (max-width: 640px) {
+  main:has(> .claim-screen) { padding: 8px 12px max(8px, env(safe-area-inset-bottom, 0px)); }
+  .claim-screen {
+    gap: 6px; min-height: 0;
+    height: calc(100dvh - var(--head-h, 64px) - 16px - env(safe-area-inset-bottom, 0px));
+  }
+  .claim-screen h2 { margin: 2px 0 0; font-size: .7rem; font-weight: 400; letter-spacing: .16em; text-transform: uppercase; color: var(--text-2); }
+  .claim-head { gap: 8px; flex-wrap: nowrap; align-items: center; }
+  .claim-head .big { font-size: 1.1rem; line-height: 1.2; }
+  .claim-head .grow { min-width: 0; }
+  .claim-head .company, .claim-head .muted { font-size: .72rem; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .claim-head button.small { min-height: 40px; padding: 0 14px; }
+  .claim-screen .grid.pumps { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .claim-screen .grid.pumps button { min-height: 0; height: clamp(44px, 7dvh, 60px); padding: 2px; font-size: 1.35rem; border-radius: 12px; }
+  .claim-screen .grid.pumps button small { font-size: .52rem; letter-spacing: .08em; margin-top: 1px; }
+  .claim-screen .grid.grades { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 6px; }
+  .claim-screen .grid.grades button { min-height: 48px; font-size: .85rem; }
+  .claim-screen .grade-line { margin: 0; font-size: .85rem; }
+  .claim-screen .display { min-height: 0; height: clamp(44px, 7dvh, 60px); padding: 0 10px; margin: 0; max-width: none;
+    font-size: 1.9rem; display: flex; align-items: center; justify-content: center; }
+  .claim-screen .keypad { flex: 1 1 auto; min-height: 0; max-width: none; width: 100%; gap: 6px; grid-auto-rows: 1fr; }
+  .claim-screen .keypad button { height: 100%; font-size: 1.5rem; border-radius: 12px; }
+  .claim-foot { gap: 6px; }
+  .litres-row { flex-wrap: nowrap; }
+  .litres-row .big { font-size: .85rem; white-space: nowrap; }
+  /* nothing else may be squashed: the keypad gives up height first */
+  .claim-screen > * { flex-shrink: 0; }
+  .claim-screen .keypad { flex: 1 1 0; }
+  .claim-screen .keypad button { min-height: 0; }
+  /* during a claim the header is one row: the mark, status, name and Lock */
+  body:has(.claim-screen) header#top { flex-wrap: nowrap; }
+  body:has(.claim-screen) .brand { flex: 0 0 auto; flex-basis: auto; }
+  body:has(.claim-screen) .brand .names { display: none; }
+  body:has(.claim-screen) .status { flex: 1 1 auto; }
+  .claim-foot .msg { padding: 6px 10px; font-size: .76rem; line-height: 1.3; }
+  .claim-foot button.xl { min-height: 52px; padding: 0 12px; font-size: .78rem; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}

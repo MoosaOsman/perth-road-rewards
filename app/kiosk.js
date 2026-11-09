@@ -218,7 +218,8 @@ function registerFlow() {
   modal((close) => {
     let uid = null;
     const step = h('div');
-    const cardStep = () => step.replaceChildren(cardReader({ title: 'Tap the NEW card', onCard: (u) => { uid = u; formStep(); } }));
+    const cardStep = () => step.replaceChildren(cardReader({ title: 'Tap the NEW card', onCard: (u) => { uid = u; formStep(); } }),
+      h('div', { class: 'actions' }, h('button', { type: 'button', class: 'ghost', onclick: close }, 'Cancel')));
     const formStep = () => {
       const name = h('input', { autocomplete: 'off', placeholder: 'Name and surname' });
       const mobile = h('input', { inputmode: 'tel', autocomplete: 'off', placeholder: '082 123 4567' });
