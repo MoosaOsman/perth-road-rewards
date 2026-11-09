@@ -13,7 +13,12 @@ export const S = {
   offlineSignIn: false,
   timers: [],      // intervals cleared on lock
   cleanups: [],    // functions run on lock
+  view: 0,         // bumped on every tab switch; async screens check it before drawing
 };
+
+// Call before an await in a screen; returns a function that is true once the
+// person has moved to another tab, so a late answer does not replace their screen.
+export function viewGuard() { const v = S.view; return () => S.view !== v; }
 
 const hooks = { onDeviceLost: () => {}, onAuthLost: () => {} };
 export function setHooks(h) { Object.assign(hooks, h); }

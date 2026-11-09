@@ -4,7 +4,7 @@
 // claim of that day is matched against the sales (rules: migration 006).
 import {
   api, h, render, toast, msg, busy, modal, confirmBox, table, downloadCsv,
-  money, litres, fmtDate, fmtTime, fmtDateTime,
+  money, litres, fmtDate, fmtTime, fmtDateTime, viewGuard,
 } from './core.js';
 import { parseJournal } from './journal.js';
 
@@ -24,8 +24,10 @@ const call = (fn, params) => api(fn, params).catch((e) => ({ ok: false, message:
 
 // ------------------------------------------------------------------ upload + list
 export async function journalTab() {
+  const stale = viewGuard();
   render(h('h1', {}, 'Journal check'), h('p', { class: 'muted' }, 'Loading…'));
   const r = await call('api_mgr_journal_list');
+  if (stale()) return;
   if (!r.ok) { render(h('h1', {}, 'Journal check'), msg(r.message)); return; }
   const done = new Set(r.data.journals.map((j) => j.day));
 
@@ -89,8 +91,10 @@ async function upload(fileName, j, replacing) {
 // ------------------------------------------------------------------ one day's result
 async function dayResult(day) {
   const title = `Journal check · ${fmtDate(`${day}T12:00:00+02:00`)}`;
+  const stale = viewGuard();
   render(h('h1', {}, title), h('p', { class: 'muted' }, 'Loading…'));
   const r = await call('api_mgr_journal_result', { p_day: day });
+  if (stale()) return;
   if (!r.ok) { render(h('h1', {}, title), msg(r.message)); return; }
   const { journal: jn, grades, claims } = r.data;
   const count = (f) => claims.filter(f).length;

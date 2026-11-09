@@ -162,6 +162,9 @@ function claimStep(uid, info) {
     const own = c && c.grades.length ? grades.filter((g) => c.grades.includes(g.code)) : [];
     return own.length ? own : grades;
   };
+  // The customer's own rate per grade (company rate where set), from the card lookup;
+  // offline the standard rate is shown and the server works out the exact cashback.
+  const rateOf = (g) => Number(info && info.rates && info.rates[g.code] != null ? info.rates[g.code] : g.rate);
   const pumpNos = Array.from({ length: st.pump_count }, (_, i) => i + 1).filter((n) => !cfg.has(n) || cfg.get(n).active);
 
   const gradeHead = h('h2', { hidden: true }, '2. Fuel grade');
@@ -178,7 +181,7 @@ function claimStep(uid, info) {
     if (list.length === 1) {
       grade = list[0];
       gradeHead.hidden = true;
-      gradeBox.replaceChildren(h('p', { class: 'big' }, `${grade.name} · ${rate(grade.rate)}`));
+      gradeBox.replaceChildren(h('p', { class: 'big' }, `${grade.name} · ${rate(rateOf(grade))}`));
       litresHead.textContent = '2. Litres';
       return;
     }
@@ -187,7 +190,7 @@ function claimStep(uid, info) {
     litresHead.textContent = '3. Litres';
     const btns = h('div', { class: 'grid grades' }, list.map((g) =>
       h('button', { 'data-v': g.code, class: g === grade ? 'sel' : null, onclick: (e) => { grade = g; pick(btns, e.currentTarget); update(); } },
-        g.name, h('small', {}, `${g.code} · ${rate(g.rate)}`))));
+        g.name, h('small', {}, `${g.code} · ${rate(rateOf(g))}`))));
     gradeBox.replaceChildren(btns);
   }
 
@@ -200,7 +203,7 @@ function claimStep(uid, info) {
     if (l > maxFill) problem = `More than ${litres(maxFill)} in one fill is not allowed.`;
     else if (remaining != null && l > remaining) problem = `Only ${litres(remaining)} left today for this card.`;
     if (problem) out.append(msg(problem));
-    est.textContent = grade && l > 0 ? `Estimated cashback: ${money(Math.round(l * Number(grade.rate)))}` : '';
+    est.textContent = grade && l > 0 ? `Estimated cashback: ${money(Math.round(l * rateOf(grade)))}` : '';
     submit.disabled = !(pump && grade && l > 0) || !!problem;
     submit.textContent = pump && grade && l > 0
       ? `Submit: pump ${pump} · ${grade.code} · ${litres(l)}` : 'Submit claim';
@@ -211,7 +214,7 @@ function claimStep(uid, info) {
       uid, pump, grade: grade.code, litres: Number(Number(kp.value).toFixed(2)),
       client_ref: uuid(), captured_at: new Date().toISOString(),
     };
-    const summary = { ...claim, est: Math.round(claim.litres * Number(grade.rate)), name: info && info.customer_name };
+    const summary = { ...claim, est: Math.round(claim.litres * rateOf(grade)), name: info && info.customer_name };
     if (S.offlineSignIn) { queueClaim(claim); return resultStep(summary, true); }
     try {
       const r = await api('api_claim_create', {
@@ -231,6 +234,7 @@ function claimStep(uid, info) {
     h('div', { class: 'row' },
       h('div', { class: 'grow' },
         h('div', { class: 'big' }, info ? info.customer_name : `Card …${uid.slice(-4)}`),
+        info && info.company ? h('div', {}, info.company) : null,
         h('div', { class: 'muted' }, info
           ? `${litres(info.litres_remaining)} left today (limit ${litres(info.cap_litres)})`
           : 'Offline — card not checked')),

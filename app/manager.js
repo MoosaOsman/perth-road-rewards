@@ -1,7 +1,7 @@
 // Perth Road Rewards — manager mode.
 import {
   S, api, h, render, toast, msg, busy, modal, confirmBox, table, downloadCsv,
-  money, litres, rate, parseRands, centsToInput, fmtDate, fmtTime, fmtDateTime, todayLocal,
+  money, litres, rate, parseRands, centsToInput, fmtDate, fmtTime, fmtDateTime, todayLocal, viewGuard,
 } from './core.js';
 import { frame, setTabs, paintStatus, refreshBoot } from './app.js';
 import { pendingTab, payoutTab, customerDesk, startPolling } from './kiosk.js';
@@ -15,6 +15,7 @@ export function start() {
     { id: 'pending', label: 'Pending claims', render: pendingTab },
     { id: 'payout', label: 'Pay out', render: payoutTab },
     { id: 'customers', label: 'Customers', render: customersTab },
+    { id: 'companies', label: 'Companies', render: companiesTab },
     { id: 'rates', label: 'Rates', render: ratesTab },
     { id: 'settings', label: 'Settings', render: settingsTab },
     { id: 'pumps', label: 'Pumps', render: pumpsTab },
@@ -31,8 +32,10 @@ const kpi = (label, value, note) => h('div', { class: 'kpi' }, h('div', { class:
   note ? h('div', { class: 'help' }, note) : null);
 
 async function load(title, fn, params) {
+  const stale = viewGuard();
   render(h('h1', {}, title), h('p', { class: 'muted' }, 'Loading…'));
   const r = await api(fn, params).catch((e) => ({ ok: false, message: e.message }));
+  if (stale()) return null;                         // the manager has moved to another tab
   if (!r.ok) { render(h('h1', {}, title), msg(r.message)); return null; }
   return r.data;
 }
@@ -82,9 +85,11 @@ async function dashboardTab() {
 
 // ------------------------------------------------------------------ rates
 async function ratesTab() {
+  const stale = viewGuard();
   const hist = await load('Rates', 'api_mgr_rates_history');
   if (!hist) return;
   await refreshBoot();
+  if (stale()) return;
   const grades = S.boot.grades;
   const all = h('input', { inputmode: 'decimal', placeholder: 'c/L', style: 'max-width:160px' });
   const setRate = async (btn, grade, input) => busy(btn, async () => {
@@ -101,7 +106,8 @@ async function ratesTab() {
   allBtn.onclick = () => setRate(allBtn, null, all);
   render(
     h('h1', {}, 'Earn rates'),
-    h('p', { class: 'muted' }, 'Cashback in cents per litre. A change applies to claims captured from now on.'),
+    h('p', { class: 'muted' }, 'Cashback in cents per litre. A change applies to claims captured from now on. '
+      + 'Companies can have their own rates: see Companies.'),
     h('div', { class: 'card row' }, h('b', {}, 'All grades:'), all, allBtn),
     h('div', { class: 'grid two' }, grades.map((g) => {
       const inp = h('input', { inputmode: 'decimal', value: g.rate, style: 'max-width:140px' });
@@ -121,7 +127,9 @@ async function ratesTab() {
 
 // ------------------------------------------------------------------ settings
 async function settingsTab() {
+  const stale = viewGuard();
   await refreshBoot();
+  if (stale()) return;
   const s = S.boot.settings;
   const f = {
     scheme_name: h('input', { value: s.scheme_name }),
@@ -162,7 +170,9 @@ async function settingsTab() {
 // The pumps and their grades are fixed facts of the site, installed by
 // migration 009 from the Namos journal. View only; a change needs a migration.
 async function pumpsTab() {
+  const stale = viewGuard();
   await refreshBoot();
+  if (stale()) return;
   const { settings: s, grades } = S.boot;
   const byPump = new Map((S.boot.pumps || []).map((p) => [p.pump, p]));
   const name = (code) => (grades.find((g) => g.code === code) || { name: code }).name;
@@ -281,7 +291,7 @@ function showCode(name, code) {
 // ------------------------------------------------------------------ customers
 let lastSearch = '';
 async function customersTab() {
-  const q = h('input', { type: 'search', placeholder: 'Search name, mobile or card number', value: lastSearch });
+  const q = h('input', { type: 'search', placeholder: 'Search name, mobile, card number or company', value: lastSearch });
   const list = h('div');
   const search = async () => {
     lastSearch = q.value;
@@ -291,6 +301,7 @@ async function customersTab() {
     list.replaceChildren(table([
       { label: 'Name', get: (c) => c.name },
       { label: 'Mobile', get: (c) => c.mobile },
+      { label: 'Company', get: (c) => c.company || '' },
       { label: 'Balance', num: true, get: (c) => money(c.balance_cents) },
       { label: 'Cap', num: true, get: (c) => (c.cap ? litres(c.cap) : 'default') },
       { label: 'Cards', get: (c) => c.cards.map((k) => `${k.uid}${k.status === 'blocked' ? ' (blocked)' : ''}`).join(', ') },
@@ -308,13 +319,16 @@ async function customersTab() {
 async function customerDetail(id) {
   const r = await api('api_mgr_customer_detail', { p_customer: id }).catch((e) => ({ ok: false, message: e.message }));
   if (!r.ok) return toast(r.message, 'bad');
-  const { customer: c, cards, ledger, claims } = r.data;
+  const { customer: c, cards, ledger, claims, companies } = r.data;
   modal((close) => {
     const name = h('input', { value: c.name });
     const mobile = h('input', { inputmode: 'tel', value: c.mobile });
     const cap = h('input', { inputmode: 'decimal', value: c.cap ?? '', placeholder: `Default (${S.boot.settings.default_cap_litres} L)` });
     const status = h('select', {}, ['active', 'suspended'].map((s) => h('option', { value: s, selected: c.status === s }, s)));
     const notes = h('textarea', {}, c.notes || '');
+    const company = h('select', {}, h('option', { value: '' }, 'None (individual customer)'),
+      companies.filter((co) => co.active || co.id === c.company_id).map((co) =>
+        h('option', { value: co.id, selected: co.id === c.company_id }, co.active ? co.name : `${co.name} (inactive)`)));
     const out = h('div');
     const save = h('button', { class: 'go', type: 'submit' }, 'Save details');
     const amt = h('input', { inputmode: 'decimal', placeholder: 'e.g. 25,00 or -25,00' });
@@ -328,6 +342,10 @@ async function customerDetail(id) {
       const u = await api('api_mgr_customer_update', { p_customer: id, p_name: name.value, p_mobile: mobile.value,
         p_cap: capV, p_status: status.value, p_notes: notes.value });
       if (!u.ok) return out.append(msg(u.message));
+      if ((company.value || null) !== (c.company_id || null)) {
+        const s = await api('api_mgr_customer_set_company', { p_customer: id, p_company: company.value || null });
+        if (!s.ok) return out.append(msg(s.message));
+      }
       toast('Customer saved.', 'ok'); reopen();
     });
     const adjust = () => busy(adj, async () => {
@@ -347,6 +365,8 @@ async function customerDetail(id) {
         h('form', { class: 'card', onsubmit: (e) => { e.preventDefault(); submit(); } },
           h('h3', {}, 'Details'),
           h('label', {}, 'Name'), name, h('label', {}, 'Mobile'), mobile,
+          h('label', {}, 'Company'), company,
+          h('div', { class: 'help' }, 'A company driver earns the company’s rates and keeps their own balance.'),
           h('label', {}, 'Daily litre cap (blank = default)'), cap,
           h('label', {}, 'Status'), status, h('label', {}, 'Notes'), notes, out, h('p'), save),
         h('form', { class: 'card', onsubmit: (e) => { e.preventDefault(); adjust(); } },
@@ -375,10 +395,154 @@ async function customerDetail(id) {
         { label: 'Pump', num: true, get: (x) => x.pump },
         { label: 'Grade', get: (x) => x.grade },
         { label: 'Litres', num: true, get: (x) => litres(x.litres) },
+        { label: 'Rate', num: true, get: (x) => rate(x.rate) },
         { label: 'Cashback', num: true, get: (x) => money(x.cashback_cents) },
         { label: 'Attendant', get: (x) => x.attendant || '' },
         { label: 'Reject reason', get: (x) => x.reject_reason || '' },
       ], claims));
+  }, { wide: true });
+}
+
+// ------------------------------------------------------------------ companies
+// A company groups customers (its drivers). Each driver keeps their own card and
+// balance; the company can earn its own rate per grade (blank = standard rate).
+async function companiesTab() {
+  const d = await load('Companies', 'api_mgr_companies');
+  if (!d) return;
+  const grades = S.boot.grades;
+  render(
+    h('div', { class: 'row' }, h('h1', { class: 'grow' }, 'Companies'), h('button', { class: 'primary', onclick: () => companyForm(null) }, 'Add company')),
+    h('p', { class: 'muted' }, 'Group a company’s drivers and give them the company’s rates. Each driver keeps their own card and balance. '
+      + 'A grade without a company rate earns the standard rate.'),
+    table([
+      { label: 'Company', get: (co) => h('b', {}, co.name) },
+      { label: 'Drivers', num: true, get: (co) => co.drivers },
+      ...grades.map((g) => ({ label: g.code, num: true, get: (co) => (co.rates[g.code] == null ? h('span', { class: 'muted' }, 'standard') : rate(co.rates[g.code])) })),
+      { label: 'Drivers’ balances', num: true, get: (co) => money(co.balance_cents) },
+      { label: 'Status', get: (co) => (co.active ? h('span', { class: 'badge ok' }, 'Active') : h('span', { class: 'badge grey' }, 'Inactive')) },
+    ], d.companies, { onRow: (co) => companyDetail(co.id), empty: 'No companies yet. Add one to give a fleet its own rates.' }));
+}
+
+function companyForm(co, after) {
+  modal((close) => {
+    const name = h('input', { value: co ? co.name : '', placeholder: 'e.g. Atomic Demolishers' });
+    const notes = h('textarea', { placeholder: 'Contact person, account details, agreement' }, co ? co.notes || '' : '');
+    const active = h('input', { type: 'checkbox', checked: co ? co.active : true });
+    const out = h('div');
+    const ok = h('button', { class: 'go', type: 'submit' }, co ? 'Save' : 'Add company');
+    const submit = () => busy(ok, async () => {
+      out.replaceChildren();
+      const r = await api('api_mgr_company_save', { p_id: co ? co.id : null, p_name: name.value, p_notes: notes.value, p_active: active.checked });
+      if (!r.ok) return out.append(msg(r.message));
+      close(); toast(co ? 'Company saved.' : 'Company added. Set its rates and add its drivers.', 'ok');
+      if (after) after(); else { companiesTab(); companyDetail(r.data.id); }
+    });
+    return h('form', { onsubmit: (e) => { e.preventDefault(); submit(); } },
+      h('h2', {}, co ? `Edit ${co.name}` : 'Add company'),
+      h('label', {}, 'Company name'), name, h('label', {}, 'Notes'), notes,
+      h('label', { class: 'check' }, active, h('span', {}, 'Active. When inactive, its drivers earn the standard rates.')),
+      out, h('div', { class: 'actions' }, h('button', { type: 'button', class: 'ghost', onclick: close }, 'Cancel'), ok));
+  });
+}
+
+async function companyDetail(id) {
+  const r = await api('api_mgr_company_detail', { p_company: id }).catch((e) => ({ ok: false, message: e.message }));
+  if (!r.ok) return toast(r.message, 'bad');
+  const { company: co, rates, drivers, history } = r.data;
+  modal((close) => {
+    const reopen = () => { close(); companyDetail(id); if (frame.current === 'companies') companiesTab(); };
+    const setRate = (btn, grade, cents, label) => busy(btn, async () => {
+      if (!await confirmBox('Change company rate', `${co.name}: set ${grade} to ${label}? Claims already captured keep their old rate.`, 'Set rate')) return;
+      const x = await api('api_mgr_company_rate', { p_company: id, p_grade: grade, p_cents: cents });
+      if (!x.ok) return toast(x.message, 'bad');
+      toast('Company rate updated.', 'ok'); reopen();
+    });
+    const rateCards = rates.map((g) => {
+      const inp = h('input', { inputmode: 'decimal', placeholder: 'c/L', value: g.company ?? '', style: 'max-width:120px' });
+      const set = h('button', { class: 'go small' }, 'Set');
+      set.onclick = () => {
+        const v = Number(String(inp.value).replace(',', '.'));
+        if (inp.value.trim() === '' || Number.isNaN(v)) return toast('Enter cents per litre.', 'bad');
+        setRate(set, g.grade, v, rate(v));
+      };
+      const std = h('button', { class: 'ghost small', disabled: g.company == null }, 'Use standard');
+      std.onclick = () => setRate(std, g.grade, null, `the standard rate (${rate(g.standard)})`);
+      return h('div', { class: 'card' },
+        h('h3', {}, `${g.name} (${g.grade})`),
+        h('p', { class: 'big' }, g.company == null ? `Standard: ${rate(g.standard)}` : `Company: ${rate(g.company)}`),
+        g.company != null ? h('p', { class: 'help' }, `Standard rate is ${rate(g.standard)}.`) : null,
+        h('div', { class: 'row' }, inp, h('span', {}, 'c/L'), set, std));
+    });
+
+    // add a driver: search customers and put them under this company
+    const q = h('input', { type: 'search', placeholder: 'Find a customer by name, mobile or card' });
+    const found = h('div');
+    const find = async () => {
+      found.replaceChildren(h('p', { class: 'muted' }, 'Searching…'));
+      const s = await api('api_mgr_customers', { p_search: q.value }).catch((e) => ({ ok: false, message: e.message }));
+      if (!s.ok) return found.replaceChildren(msg(s.message));
+      const list = s.data.customers.filter((c) => c.company !== co.name).slice(0, 20);
+      found.replaceChildren(table([
+        { label: 'Name', get: (c) => c.name },
+        { label: 'Mobile', get: (c) => c.mobile },
+        { label: 'Company now', get: (c) => c.company || '' },
+        { label: '', get: (c) => {
+          const b = h('button', { class: 'small primary' }, 'Add to company');
+          b.onclick = () => busy(b, async () => {
+            if (c.company && !await confirmBox('Move driver', `${c.name} is with ${c.company}. Move them to ${co.name}?`, 'Move')) return;
+            const x = await api('api_mgr_customer_set_company', { p_customer: c.id, p_company: id });
+            if (!x.ok) return toast(x.message, 'bad');
+            toast(`${c.name} added to ${co.name}.`, 'ok'); reopen();
+          });
+          return b;
+        } },
+      ], list, { empty: 'No customers found. Register the driver at the kiosk first.' }));
+    };
+    const removeDriver = (d) => async () => {
+      if (!await confirmBox('Remove driver', `Take ${d.name} out of ${co.name}? They keep their card and balance and earn the standard rates.`, 'Remove')) return;
+      const x = await api('api_mgr_customer_set_company', { p_customer: d.id, p_company: null });
+      if (!x.ok) return toast(x.message, 'bad');
+      toast(`${d.name} removed from ${co.name}.`, 'ok'); reopen();
+    };
+
+    return h('div', {},
+      h('div', { class: 'row' }, h('h2', { class: 'grow' }, co.name),
+        co.active ? null : h('span', { class: 'badge grey' }, 'Inactive'),
+        h('button', { class: 'ghost small', onclick: () => companyForm(co, reopen) }, 'Edit'),
+        h('button', { class: 'ghost', onclick: close }, 'Close')),
+      co.notes ? h('p', { class: 'muted' }, co.notes) : null,
+      !co.active ? msg('This company is inactive: its drivers earn the standard rates.', 'warn') : null,
+      h('div', { class: 'kpis' },
+        kpi('Drivers', drivers.length),
+        kpi('Drivers’ balances', money(drivers.reduce((a, x) => a + Number(x.balance_cents), 0))),
+        kpi('Litres, last 30 days', litres(drivers.reduce((a, x) => a + Number(x.litres_30d), 0))),
+        kpi('Cashback, last 30 days', money(drivers.reduce((a, x) => a + Number(x.earned_30d), 0)))),
+      h('h3', {}, 'Company rates'),
+      h('p', { class: 'muted' }, 'Blank means the standard rate. A change applies to claims captured from now on.'),
+      h('div', { class: 'grid two' }, rateCards),
+      h('h3', {}, 'Drivers'),
+      table([
+        { label: 'Name', get: (x) => x.name },
+        { label: 'Mobile', get: (x) => x.mobile },
+        { label: 'Balance', num: true, get: (x) => money(x.balance_cents) },
+        { label: 'Litres 30 d', num: true, get: (x) => litres(x.litres_30d) },
+        { label: 'Last claim', get: (x) => fmtDate(x.last_claim) },
+        { label: 'Status', get: (x) => (x.status === 'active' ? '' : h('span', { class: 'badge bad' }, x.status)) },
+        { label: '', get: (x) => h('div', { class: 'row' },
+          h('button', { class: 'small ghost', onclick: () => { close(); customerDetail(x.id); } }, 'Open'),
+          h('button', { class: 'small danger', onclick: removeDriver(x) }, 'Remove')) },
+      ], drivers, { empty: 'No drivers yet. Add customers below.' }),
+      h('h3', {}, 'Add a driver'),
+      h('p', { class: 'muted' }, 'Register the driver at the kiosk first, then find them here.'),
+      h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); find(); } }, h('div', { class: 'grow' }, q), h('button', { class: 'primary' }, 'Search')),
+      h('p'), found,
+      h('h3', {}, 'Rate history'),
+      table([
+        { label: 'From', get: (x) => fmtDateTime(x.from) },
+        { label: 'Grade', get: (x) => x.grade },
+        { label: 'Rate', num: true, get: (x) => (x.cents_per_litre == null ? 'standard' : rate(x.cents_per_litre)) },
+        { label: 'Set by', get: (x) => x.by || '' },
+      ], history, { empty: 'No company rates set yet.' }));
   }, { wide: true });
 }
 
@@ -491,7 +655,8 @@ const ACTIONS = {
   payout: 'Payout', rate_changed: 'Rate changed', settings_changed: 'Settings changed', staff_saved: 'Staff saved',
   device_created: 'Device created', device_disable: 'Device disabled', device_enable: 'Device enabled',
   device_repair: 'Device re-paired', customer_updated: 'Customer updated', balance_adjusted: 'Balance adjusted',
-  journal_uploaded: 'Journal uploaded', claim_reversed: 'Claim reversed (journal check)',
+  journal_uploaded: 'Journal uploaded', company_saved: 'Company saved', company_rate_changed: 'Company rate changed',
+  customer_company_changed: 'Customer company changed', claim_reversed: 'Claim reversed (journal check)',
 };
 async function auditTab() {
   const d = await load('Audit log', 'api_mgr_audit', { p_limit: 500 });

@@ -73,6 +73,7 @@ export function showTab(id) {
   const t = frame.tabs.find((x) => x.id === id);
   if (!t) return;
   frame.current = id;
+  S.view += 1;
   $('#tabs').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.tab === id));
   t.render();
 }
@@ -86,7 +87,7 @@ export function lock(reason) {
   stopIdle();
   S.timers.forEach(clearInterval); S.timers = [];
   S.cleanups.forEach((f) => { try { f(); } catch { /* ignore */ } }); S.cleanups = [];
-  S.me = null; S.pin = null; S.offlineSignIn = false;
+  S.me = null; S.pin = null; S.offlineSignIn = false; S.view += 1;
   frame.statusExtras = []; frame.tabs = [];
   $('#tabs').hidden = true;
   closeAllModals();

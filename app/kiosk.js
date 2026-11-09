@@ -2,7 +2,7 @@
 // The tab renderers are exported so the manager device can use them too.
 import {
   S, api, h, render, toast, msg, busy, modal, confirmBox, cardReader, every, chime,
-  money, litres, parseRands, centsToInput, fmtTime, fmtDateTime, ago, table,
+  money, litres, parseRands, centsToInput, fmtTime, fmtDateTime, ago, table, viewGuard,
 } from './core.js';
 import { frame, setTabs, setTabCount, paintStatus } from './app.js';
 
@@ -203,6 +203,7 @@ export function customerDesk() {
 function cardInfoBox(c) {
   return h('div', { class: 'card' },
     h('div', { class: 'big' }, c.customer_name),
+    c.company ? h('div', {}, `Company: ${c.company}`) : null,
     h('div', {}, `Mobile ${c.mobile_masked} · card ${c.card_uid}`),
     h('div', {}, 'Balance ', h('b', {}, money(c.balance_cents)), ` · paid out today ${money(c.paid_out_today_cents)}`),
     h('div', { class: 'muted' }, `${litres(c.litres_today)} claimed today, ${litres(c.litres_remaining)} left (limit ${litres(c.cap_litres)})`),
@@ -298,8 +299,10 @@ function blockFlow() {
 
 // ------------------------------------------------------------------ shift summary
 export async function shiftTab() {
+  const stale = viewGuard();
   render(h('h1', {}, 'Shift summary'), h('p', { class: 'muted' }, 'Loading…'));
   const r = await api('api_shift_summary').catch((e) => ({ ok: false, message: e.message }));
+  if (stale()) return;
   if (!r.ok) return render(h('h1', {}, 'Shift summary'), msg(r.message));
   const d = r.data;
   render(
