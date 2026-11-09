@@ -15,8 +15,19 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* storage blocked */ } },
 };
 
+// Updates: the service worker is checked on start and whenever the app comes back
+// to the foreground. When a new version takes over, the page reloads straight away
+// if nobody is signed in, otherwise at the next lock, so no claim in progress is lost.
+let reloadOnLock = false;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;                 // first install: nothing old on screen
+    if (S.me) reloadOnLock = true; else location.reload();
+  });
 }
 
 setHooks({
@@ -84,6 +95,7 @@ export function setTabCount(id, n) {
 
 // ------------------------------------------------------------------ lock / sign-out
 export function lock(reason) {
+  if (reloadOnLock) { location.reload(); return; }   // a new version arrived while signed in
   stopIdle();
   S.timers.forEach(clearInterval); S.timers = [];
   S.cleanups.forEach((f) => { try { f(); } catch { /* ignore */ } }); S.cleanups = [];
