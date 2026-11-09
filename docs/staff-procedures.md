@@ -51,7 +51,7 @@ Three one-page procedures: **Attendant**, **Cashier** and the **Manager's daily 
 **Paying out cashback**
 1. **Pay out** tab → the customer **taps their card** (the card must be present — no card, no payout).
 2. Ask the customer to **say** the **last 3 digits of their mobile number**. Do not read them out to the customer.
-3. The amount is filled in (balance, up to the daily limit). Minimum R50; maximum R1 000 per customer per day.
+3. The amount is filled in (the whole balance, or up to a daily limit if the manager has set one). Minimum R20.
 4. Optionally type the Namos Paid Out reference, then **Confirm payout** → **Yes, pay out**.
 5. The screen shows **PAY R xx,xx CASH FROM TILL**. Pay that exact amount and **record a Paid Out in Namos** for it.
 

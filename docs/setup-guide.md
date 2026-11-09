@@ -64,7 +64,7 @@ Manager device → **Staff → Add staff member**.
 
 ## 4. Review settings and rates
 
-* **Settings:** scheme name, R50 minimum payout, R1 000 daily payout limit, 150 L default cap, 200 L per fill, 14-hour claim expiry.
+* **Settings:** scheme name, R20 minimum payout, no daily payout limit (blank), 150 L default cap, 200 L per fill, 14-hour claim expiry.
 * **Pumps (fixed, view only):** the 10 pumps and their grades are installed with the system (migration 009, from the Namos journal of 1 Nov 2026): ULP 95 on pumps 1, 4, 8, 9; ULP 93 on pump 6; D50 on pumps 2, 3, 5, 7, 10 (pump 7 corrected to D50 by migration 010). The forecourt asks only for the pump; the grade fills in by itself, and the server refuses a claim whose grade the pump does not sell. A physical change to the forecourt needs a new migration.
 * **Rates:** 10 c/L on all grades to start. Changes apply to claims captured from that moment.
 

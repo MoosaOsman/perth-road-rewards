@@ -30,7 +30,7 @@ Web NFC needs an Android device with a built-in NFC chip, running Chrome. **Many
 * Chip: **NXP NTAG215** (or NTAG216), 13.56 MHz, ISO/IEC 14443-A, 7-byte UID.
 * Size: ISO CR80, 85.6 × 54 × 0.8 mm, white PVC.
 * Pre-formatted NDEF (most suppliers ship them this way); no data needs to be written — only the UID is used.
-* Print: scheme name "Perth Road Rewards", short terms ("Cashback paid in cash at the kiosk. Minimum R50."), and a **card number** printed on the back — print the card's UID so cashiers can type it if a card will not read.
+* Print: scheme name "Perth Road Rewards", short terms ("Cashback paid in cash at the kiosk. Minimum R20."), and a **card number** printed on the back — print the card's UID so cashiers can type it if a card will not read.
 * Do **not** use TotalEnergies branding (owner's decision).
 * Order a sample of 10 first and test them on the actual forecourt tablet before the full run.
 

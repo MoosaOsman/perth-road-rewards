@@ -134,7 +134,7 @@ async function settingsTab() {
   const f = {
     scheme_name: h('input', { value: s.scheme_name }),
     min_payout: h('input', { inputmode: 'decimal', value: centsToInput(s.min_payout_cents) }),
-    max_payout_day: h('input', { inputmode: 'decimal', value: centsToInput(s.max_payout_day_cents) }),
+    max_payout_day: h('input', { inputmode: 'decimal', value: s.max_payout_day_cents == null ? '' : centsToInput(s.max_payout_day_cents), placeholder: 'No limit' }),
     default_cap_litres: h('input', { inputmode: 'decimal', value: s.default_cap_litres }),
     max_litres_per_fill: h('input', { inputmode: 'decimal', value: s.max_litres_per_fill }),
     claim_expiry_hours: h('input', { inputmode: 'numeric', value: s.claim_expiry_hours }),
@@ -145,15 +145,16 @@ async function settingsTab() {
   render(h('h1', {}, 'Settings'), h('form', { class: 'card narrow', onsubmit: (e) => { e.preventDefault(); submit(); } },
     field('Scheme name', f.scheme_name, 'Shown in the header on every tablet.'),
     field('Minimum payout (R)', f.min_payout),
-    field('Maximum payout per customer per day (R)', f.max_payout_day),
+    field('Maximum payout per customer per day (R)', f.max_payout_day, 'Leave blank for no daily limit.'),
     field('Default daily litre cap per card', f.default_cap_litres, 'Can be raised per customer (taxis, fleets).'),
     field('Maximum litres in one fill', f.max_litres_per_fill),
     field('Unapproved claims expire after (hours, 1–72)', f.claim_expiry_hours),
     h('p'), out, save));
   const submit = () => busy(save, async () => {
     out.replaceChildren();
-    const min = parseRands(f.min_payout.value), max = parseRands(f.max_payout_day.value);
-    if (min == null || max == null) return out.append(msg('Enter the rand amounts as numbers, e.g. 50,00.'));
+    const min = parseRands(f.min_payout.value);
+    const max = f.max_payout_day.value.trim() === '' ? null : parseRands(f.max_payout_day.value);
+    if (min == null || (f.max_payout_day.value.trim() !== '' && max == null)) return out.append(msg('Enter the rand amounts as numbers, e.g. 20,00.'));
     const r = await api('api_mgr_update_settings', { p_settings: {
       scheme_name: f.scheme_name.value, min_payout_cents: min, max_payout_day_cents: max,
       default_cap_litres: Number(f.default_cap_litres.value.replace(',', '.')),
@@ -305,7 +306,7 @@ async function customersTab() {
       { label: 'Balance', num: true, get: (c) => money(c.balance_cents) },
       { label: 'Cap', num: true, get: (c) => (c.cap ? litres(c.cap) : 'default') },
       { label: 'Cards', get: (c) => c.cards.map((k) => `${k.uid}${k.status === 'blocked' ? ' (blocked)' : ''}`).join(', ') },
-      { label: 'Status', get: (c) => (c.status === 'active' ? '' : h('span', { class: 'badge bad' }, c.status)) },
+      { label: 'Status', get: (c) => (c.status === 'active' ? '' : h('span', { class: `badge ${c.status === 'deleted' ? 'grey' : 'bad'}` }, c.status)) },
       { label: 'Last claim', get: (c) => fmtDate(c.last_claim) },
     ], r.data.customers, { onRow: (c) => customerDetail(c.id), empty: 'No customers found.' }),
     r.data.customers.length >= 200 ? h('p', { class: 'muted' }, 'Showing the first 200 matches. Narrow the search.') : '');
@@ -336,6 +337,9 @@ async function customerDetail(id) {
     const out2 = h('div');
     const adj = h('button', { class: 'primary', type: 'submit' }, 'Apply adjustment');
     const reopen = () => { close(); customerDetail(id); };
+    const deleted = c.status === 'deleted';
+    const del = h('button', { type: 'button', class: 'danger small', disabled: deleted }, 'Delete personal details (POPIA)');
+    del.onclick = () => deleteCustomer(c, () => { close(); customerDetail(id); });
     const submit = () => busy(save, async () => {
       out.replaceChildren();
       const capV = cap.value.trim() === '' ? null : Number(cap.value.replace(',', '.'));
@@ -361,7 +365,8 @@ async function customerDetail(id) {
       h('div', { class: 'row' }, h('h2', { class: 'grow' }, c.name), h('button', { class: 'ghost', onclick: close }, 'Close')),
       h('div', { class: 'kpis' }, kpi('Balance', money(c.balance_cents)), kpi('Registered', fmtDate(c.created_at)),
         kpi('POPIA consent', fmtDateTime(c.consent_at))),
-      h('div', { class: 'grid two' },
+      deleted ? msg('This customer’s personal details were deleted on request (POPIA). The money records are kept, without a name.', 'info') : null,
+      deleted ? null : h('div', { class: 'grid two' },
         h('form', { class: 'card', onsubmit: (e) => { e.preventDefault(); submit(); } },
           h('h3', {}, 'Details'),
           h('label', {}, 'Name'), name, h('label', {}, 'Mobile'), mobile,
@@ -373,6 +378,7 @@ async function customerDetail(id) {
           h('h3', {}, 'Adjust balance'),
           h('p', { class: 'muted' }, 'Use for corrections only. Positive adds, negative deducts. Recorded in the audit log.'),
           h('label', {}, 'Amount (R)'), amt, h('label', {}, 'Note'), note, out2, h('p'), adj)),
+      deleted ? null : h('div', { class: 'row' }, h('span', { class: 'spacer' }), del),
       h('h3', {}, 'Cards'),
       table([
         { label: 'Card', get: (k) => k.uid },
@@ -401,6 +407,30 @@ async function customerDetail(id) {
         { label: 'Reject reason', get: (x) => x.reject_reason || '' },
       ], claims));
   }, { wide: true });
+}
+
+// POPIA: erase the customer's name and mobile, block their cards, keep the
+// money records without a name. The server requires a zero balance and no
+// pending claims.
+function deleteCustomer(c, after) {
+  modal((close) => {
+    const note = h('input', { placeholder: 'Who asked, when and how (for example “Customer request at kiosk, 9 Nov”)' });
+    const out = h('div');
+    const go = h('button', { class: 'danger' }, 'Delete personal details');
+    go.onclick = () => busy(go, async () => {
+      out.replaceChildren();
+      const r = await api('api_mgr_customer_delete', { p_customer: c.id, p_note: note.value });
+      if (!r.ok) return out.append(msg(r.message));
+      close(); toast('Personal details deleted. Cards blocked.', 'ok'); after();
+    });
+    return h('div', {},
+      h('h2', {}, `Delete ${c.name}’s personal details`),
+      h('p', {}, 'Use this only when the customer asks for their details to be deleted. Their name and mobile number are erased '
+        + 'and every card is blocked. Claims, payouts and the ledger stay for the accounts, without a name. This cannot be undone.'),
+      h('p', { class: 'help' }, `The balance must be R0,00 first (now ${money(c.balance_cents)}) and no claims may be pending.`),
+      h('label', {}, 'Request recorded as'), note, out,
+      h('div', { class: 'actions' }, h('button', { class: 'ghost', onclick: close }, 'Cancel'), go));
+  });
 }
 
 // ------------------------------------------------------------------ companies
@@ -536,6 +566,15 @@ async function companyDetail(id) {
       h('p', { class: 'muted' }, 'Register the driver at the kiosk first, then find them here.'),
       h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); find(); } }, h('div', { class: 'grow' }, q), h('button', { class: 'primary' }, 'Search')),
       h('p'), found,
+      h('h3', {}, 'Statement'),
+      (() => {
+        const from = h('input', { type: 'date', value: `${todayLocal().slice(0, 8)}01` });
+        const to = h('input', { type: 'date', value: todayLocal() });
+        return h('form', { class: 'row', onsubmit: (e) => { e.preventDefault(); close(); companyStatement(id, from.value, to.value); } },
+          h('div', { class: 'grow' }, h('label', {}, 'From'), from), h('div', { class: 'grow' }, h('label', {}, 'To'), to),
+          h('button', { class: 'primary' }, 'Show statement'));
+      })(),
+      h('p', { class: 'help' }, 'Approved fills and payouts of the company’s current drivers, by fill date. Print it or export CSV for the company.'),
       h('h3', {}, 'Rate history'),
       table([
         { label: 'From', get: (x) => fmtDateTime(x.from) },
@@ -544,6 +583,67 @@ async function companyDetail(id) {
         { label: 'Set by', get: (x) => x.by || '' },
       ], history, { empty: 'No company rates set yet.' }));
   }, { wide: true });
+}
+
+// A printable statement for one company and date range.
+async function companyStatement(id, from, to) {
+  const stale = viewGuard();
+  render(h('h1', {}, 'Company statement'), h('p', { class: 'muted' }, 'Loading…'));
+  const r = await api('api_mgr_company_statement', { p_company: id, p_from: from, p_to: to }).catch((e) => ({ ok: false, message: e.message }));
+  if (stale()) return;
+  if (!r.ok) return render(h('h1', {}, 'Company statement'), msg(r.message));
+  const { company: co, claims, payouts, balances } = r.data;
+  const byDriver = new Map(balances.map((b) => [b.driver, { driver: b.driver, fills: 0, litres: 0, cashback: 0, paid: 0, balance: b.balance_cents }]));
+  const row = (d) => { if (!byDriver.has(d)) byDriver.set(d, { driver: d, fills: 0, litres: 0, cashback: 0, paid: 0, balance: null }); return byDriver.get(d); };
+  claims.forEach((c) => { const x = row(c.driver); x.fills += 1; x.litres += Number(c.litres); x.cashback += c.cashback_cents; });
+  payouts.forEach((p) => { row(p.driver).paid += p.amount_cents; });
+  const drivers = [...byDriver.values()];
+  const sum = (k) => drivers.reduce((a, x) => a + (x[k] || 0), 0);
+  const period = `${fmtDate(`${from}T12:00:00+02:00`)} to ${fmtDate(`${to}T12:00:00+02:00`)}`;
+  const tag = `${co.name.replace(/\W+/g, '-')}_${from}_${to}`;
+  render(
+    h('div', { class: 'row no-print' },
+      h('button', { class: 'ghost', onclick: () => companyDetail(id) }, '← Company'),
+      h('span', { class: 'spacer' }),
+      h('button', { class: 'ghost', onclick: () => downloadCsv(`statement_${tag}_fills.csv`, [
+        { label: 'Date', get: (c) => fmtDateTime(c.at) }, { label: 'Driver', get: (c) => c.driver }, { label: 'Card', get: (c) => c.card },
+        { label: 'Pump', get: (c) => c.pump }, { label: 'Grade', get: (c) => c.grade }, { label: 'Litres', get: (c) => c.litres },
+        { label: 'Rate c/L', get: (c) => c.rate }, { label: 'Cashback R', get: (c) => (c.cashback_cents / 100).toFixed(2) },
+        { label: 'Namos receipt', get: (c) => c.receipt }], claims) }, 'Export fills CSV'),
+      h('button', { class: 'primary', onclick: () => window.print() }, 'Print')),
+    h('h1', {}, `${co.name}: statement`),
+    h('p', { class: 'muted' }, `${S.boot.settings.scheme_name} · ${period} · approved fills by fill date`),
+    h('div', { class: 'kpis' },
+      kpi('Fills', sum('fills')), kpi('Litres', litres(sum('litres'))),
+      kpi('Cashback earned', money(sum('cashback'))), kpi('Paid out', money(sum('paid')))),
+    h('h2', {}, 'By driver'),
+    table([
+      { label: 'Driver', get: (x) => x.driver },
+      { label: 'Fills', num: true, get: (x) => x.fills },
+      { label: 'Litres', num: true, get: (x) => litres(x.litres) },
+      { label: 'Cashback', num: true, get: (x) => money(x.cashback) },
+      { label: 'Paid out', num: true, get: (x) => money(x.paid) },
+      { label: 'Balance now', num: true, get: (x) => (x.balance == null ? '' : money(x.balance)) },
+    ], drivers, { empty: 'No drivers.' }),
+    h('h2', {}, 'Fills'),
+    table([
+      { label: 'Date', get: (c) => fmtDateTime(c.at) },
+      { label: 'Driver', get: (c) => c.driver },
+      { label: 'Pump', num: true, get: (c) => c.pump },
+      { label: 'Grade', get: (c) => c.grade },
+      { label: 'Litres', num: true, get: (c) => litres(c.litres) },
+      { label: 'Rate', num: true, get: (c) => rate(c.rate) },
+      { label: 'Cashback', num: true, get: (c) => money(c.cashback_cents) },
+      { label: 'Receipt', get: (c) => c.receipt || '' },
+    ], claims, { empty: 'No approved fills in this period.' }),
+    h('h2', {}, 'Payouts'),
+    table([
+      { label: 'Date', get: (p) => fmtDateTime(p.at) },
+      { label: 'Driver', get: (p) => p.driver },
+      { label: 'Amount', num: true, get: (p) => money(p.amount_cents) },
+      { label: 'Namos ref', get: (p) => p.namos_ref || '' },
+    ], payouts, { empty: 'No payouts in this period.' }),
+    h('p', { class: 'muted' }, `Printed ${fmtDateTime(new Date())}.`));
 }
 
 // ------------------------------------------------------------------ reports
@@ -655,7 +755,7 @@ const ACTIONS = {
   payout: 'Payout', rate_changed: 'Rate changed', settings_changed: 'Settings changed', staff_saved: 'Staff saved',
   device_created: 'Device created', device_disable: 'Device disabled', device_enable: 'Device enabled',
   device_repair: 'Device re-paired', customer_updated: 'Customer updated', balance_adjusted: 'Balance adjusted',
-  journal_uploaded: 'Journal uploaded', company_saved: 'Company saved', company_rate_changed: 'Company rate changed',
+  journal_uploaded: 'Journal uploaded', customer_deleted: 'Customer deleted (POPIA)', company_saved: 'Company saved', company_rate_changed: 'Company rate changed',
   customer_company_changed: 'Customer company changed', claim_reversed: 'Claim reversed (journal check)',
 };
 async function auditTab() {

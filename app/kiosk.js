@@ -143,7 +143,8 @@ async function payoutForm(uid, out) {
   const c = r.data;
   if (c.card_status !== 'active') return out.replaceChildren(msg(`Card blocked${c.block_reason ? `: ${c.block_reason}` : ''}.`));
   if (c.customer_status !== 'active') return out.replaceChildren(msg('This customer account is suspended. Refer to the manager.'));
-  const leftToday = Math.max(0, c.max_payout_day_cents - c.paid_out_today_cents);
+  const limited = c.max_payout_day_cents != null;       // null = no daily payout limit
+  const leftToday = limited ? Math.max(0, c.max_payout_day_cents - c.paid_out_today_cents) : Infinity;
   const allowed = Math.min(c.balance_cents, leftToday);
   const facts = h('div', { class: 'kpis' },
     kpi('Customer', c.customer_name), kpi('Balance', money(c.balance_cents)),
@@ -162,7 +163,7 @@ async function payoutForm(uid, out) {
     h('label', {}, `Last 3 digits of the customer’s mobile (${c.mobile_masked})`), last3,
     h('p', { class: 'help' }, 'Ask the customer to say them. Do not read them out.'),
     h('label', {}, 'Amount (R)'), amount,
-    h('p', { class: 'help' }, `Minimum ${money(c.min_payout_cents)} · maximum now ${money(allowed)}`),
+    h('p', { class: 'help' }, `Minimum ${money(c.min_payout_cents)} · maximum now ${money(allowed)}${limited ? '' : ' (the full balance)'}`),
     h('label', {}, 'Namos Paid Out reference'), ref,
     err, h('p'), go));
   last3.focus();
