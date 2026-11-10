@@ -215,12 +215,31 @@ function cardInfoBox(c) {
 const CONSENT = 'I agree that Perth Road Rewards may store my name, mobile number and fuel purchases to run this cashback scheme. '
   + 'My details will not be shared or used for marketing. I can ask the manager to see or delete my details at any time.';
 
+// A new card must not belong to anyone yet. Checked as soon as it is tapped, before
+// any details are asked for (the server refuses a used card as well).
+async function newCardCheck(uid, out) {
+  out.replaceChildren(h('p', { class: 'muted' }, 'Checking card…'));
+  const r = await api('api_card_lookup', { p_uid: uid }).catch((e) => ({ ok: false, code: 'NETWORK', message: e.message }));
+  if (!r.ok && r.code === 'CARD_UNKNOWN') { out.replaceChildren(); return true; }
+  if (r.ok) {
+    out.replaceChildren(msg(`This card is already registered to ${r.data.customer_name} (${r.data.mobile_masked}). `
+      + 'Use a new card from the stock. To give an existing customer a new card, use Replace lost card.'));
+  } else {
+    out.replaceChildren(msg(r.message));
+  }
+  return false;
+}
+
 function registerFlow() {
   modal((close) => {
     let uid = null;
     const step = h('div');
-    const cardStep = () => step.replaceChildren(cardReader({ title: 'Tap the NEW card', onCard: (u) => { uid = u; formStep(); } }),
-      h('div', { class: 'actions' }, h('button', { type: 'button', class: 'ghost', onclick: close }, 'Cancel')));
+    const cardStep = () => {
+      const out = h('div');
+      step.replaceChildren(cardReader({ title: 'Tap the NEW card', onCard: async (u) => { if (await newCardCheck(u, out)) { uid = u; formStep(); } } }),
+        h('p'), out,
+        h('div', { class: 'actions' }, h('button', { type: 'button', class: 'ghost', onclick: close }, 'Cancel')));
+    };
     const formStep = () => {
       const name = h('input', { autocomplete: 'off', placeholder: 'Name and surname' });
       const mobile = h('input', { inputmode: 'tel', autocomplete: 'off', placeholder: '082 123 4567' });
@@ -265,7 +284,7 @@ function replaceFlow() {
     const reason = h('input', { value: 'Lost card' });
     const step = h('div');
     const out = h('div');
-    const ready = () => step.replaceChildren(cardReader({ title: 'Tap the NEW card', onCard: (uid) => submit(uid) }));
+    const ready = () => step.replaceChildren(cardReader({ title: 'Tap the NEW card', onCard: async (uid) => { if (await newCardCheck(uid, out)) submit(uid); } }));
     const submit = async (uid) => {
       out.replaceChildren();
       if (!mobile.value.trim()) return out.append(msg('Enter the mobile number first.'));

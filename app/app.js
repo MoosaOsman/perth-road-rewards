@@ -260,11 +260,15 @@ function showPin(staff) {
     }
     startMode();
   });
-  render(h('div', { class: 'narrow' },
-    h('button', { class: 'ghost small', onclick: () => showSignIn() }, '← Back'),
-    h('h1', { class: 'center' }, staff.name),
-    h('p', { class: 'center muted' }, 'Enter your PIN'),
-    kp.display, kp.pad, h('p'), out, go));
+  // Fits one screen without scrolling (styles.css): one column on phones,
+  // two columns on landscape tablets.
+  render(h('div', { class: 'pin-screen' },
+    h('div', { class: 'pin-head' },
+      h('button', { class: 'ghost small', onclick: () => showSignIn() }, '← Back'),
+      h('h1', { class: 'center' }, staff.name),
+      h('p', { class: 'center muted' }, 'Enter your PIN')),
+    h('div', { class: 'pin-entry' }, kp.display, kp.pad),
+    h('div', { class: 'pin-foot' }, out, go)));
 }
 
 async function startMode() {
